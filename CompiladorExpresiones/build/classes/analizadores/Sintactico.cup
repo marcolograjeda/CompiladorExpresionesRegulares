@@ -1,0 +1,181 @@
+package analizadores;
+import java.util.LinkedList;
+import java_cup.runtime.*;
+import compiladorexpresiones.*;
+import clases.*;
+import java.util.ArrayList;
+
+parser code
+{:
+    public String salida = "";
+    
+    public ArrayList<NodoArbol> arboles = CompiladorExpresiones.arboles;
+    public ArrayList<String> listaCar = new ArrayList();
+    public ArrayList<Expresion> expresiones = CompiladorExpresiones.expresiones;
+    public ArrayList<EntradaAnalisis> entradasAnalizar = CompiladorExpresiones.entradasAnalizar;
+    static int numHoja = 1;
+    public NodoArbol auxiliar = new NodoArbol();
+    /**
+    * Metodo para error sintactico
+    **/
+    public void syntax_error(Symbol s){
+        System.err.println("Error sintacto línea " + (s.left) +" columna "+s.right+ ". No se esperaba " +s.value+"."); 
+            //practicacompi1.PracticaCompi1.listaSintacticos.add(new ErrorLexico(s.value.toString(), "Sintactico", Integer.toString(s.left), Integer.toString(s.right)));
+        }
+    
+    public void unrecovered_syntax_error(Symbol s) throws java.lang.Exception{
+        //System.err.println("Error irrecuperable en la linea " + (s.left)+ " columna " +s.right+". Elemento " + s.value + " no reconocido.");
+    }
+
+:}
+
+terminal String igual, llavea, llavec, dospuntos, puntocoma, coma, porcentaje, guion, flecha, colocho;
+terminal String punto, bor, asterisco, mas, interrogacion; 
+terminal String conj;
+terminal String caracter, identificador, num, cadena, conjuntoDec;
+
+non terminal String S, I, LC, CON, EXP, POR, LCAR, LSEN;
+non terminal NodoArbol CEXP, CE;
+non terminal Conjunto TCON;
+non terminal EntradaAnalisis SEN;
+precedence left coma;
+
+start with S; 
+S::= I;
+
+I::= llavea LC llavec;
+
+LC::= CON
+    | EXP 
+    | POR
+;
+
+CON::= conj dospuntos identificador:nombre guion flecha TCON:conj puntocoma LC {:System.out.println("Nombre: "+nombre+" Conjunto: ");:} //LCT Para cambiar el LC y quitar el POR  
+;
+
+TCON::={:listaCar = new ArrayList();:}LCAR:lista {:Conjunto conjunto = new Conjunto(); conjunto.caracteres = listaCar; RESULT = conjunto;:}
+;
+
+LCAR::= LCAR:lista coma identificador:id {:listaCar.add(id); RESULT = lista + ","+ id;:}
+    |   identificador:id {:listaCar.add(id); RESULT = id;:}
+;
+
+EXP::= identificador:nombre guion flecha CEXP:exp puntocoma {:numHoja = 1;:} LC {:expresiones.add(new Expresion(nombre,(NodoArbol)exp));
+        System.out.println("Nombre Expresion: "+nombre+" Expresion: "+numHoja);:}
+;
+
+CEXP::= punto CE:id1 CE:id2 {:System.out.println(id1.dato.toString()+"."+id2.dato.toString()); //RESULT = "("+id1+"."+id2+")";
+        NodoArbol raiz = new NodoArbol(".");
+        raiz.izquierda = (NodoArbol)id1;
+        raiz.derecha = (NodoArbol)id2;
+        if(raiz.izquierda.anulable){
+            if(raiz.derecha.anulable){
+                raiz.anulable = true;
+            }
+        }
+        if(!raiz.izquierda.anulable){
+            if(!raiz.primeros.equals("")){
+                raiz.primeros += ","+raiz.izquierda.primeros;
+            }else{
+                raiz.primeros = raiz.izquierda.primeros;
+            }
+        }else{
+            if(!raiz.primeros.equals("")){
+                raiz.primeros += ","+raiz.izquierda.primeros+","+raiz.derecha.primeros;
+            }else{
+                raiz.primeros = raiz.izquierda.primeros+","+raiz.derecha.primeros;
+            }
+        }
+        if(!raiz.derecha.anulable){
+            if(!raiz.siguientes.equals("")){
+                raiz.siguientes += ","+raiz.derecha.siguientes;
+            }else{
+                raiz.siguientes = raiz.derecha.siguientes;
+            }
+        }else{
+            if(!raiz.siguientes.equals("")){
+                raiz.siguientes += ","+raiz.izquierda.siguientes+","+raiz.derecha.siguientes;
+            }else{
+                raiz.siguientes = raiz.izquierda.siguientes+","+raiz.derecha.siguientes;
+            }
+        }
+        RESULT = raiz;:}
+    | bor CE:id1 CE:id2{:System.out.println(id1.dato.toString()+"|"+id2.dato.toString()); //RESULT = "("+id1+"|"+id2+")";
+        NodoArbol raiz = new NodoArbol("|");
+        raiz.izquierda = (NodoArbol)id1;
+        raiz.derecha = (NodoArbol)id2;
+        if(raiz.izquierda.anulable){
+            if(raiz.derecha.anulable){
+                raiz.anulable = true;
+            }
+        }
+        raiz.primeros = raiz.izquierda.primeros+","+raiz.derecha.primeros;
+        raiz.siguientes = raiz.izquierda.siguientes+","+raiz.derecha.siguientes;
+        RESULT = raiz;:}
+    | asterisco CE:id1 {:System.out.println(id1.dato.toString()+"*"); //RESULT = "("+id1+"*)"; 
+        NodoArbol raiz = new NodoArbol("*");
+        raiz.izquierda = (NodoArbol)id1;
+        raiz.anulable = true;
+        if(!raiz.primeros.equals("")){
+            raiz.primeros += ","+raiz.izquierda.primeros;
+            raiz.siguientes += ","+raiz.izquierda.siguientes;
+        }else{
+            raiz.primeros = raiz.izquierda.primeros;
+            raiz.siguientes = raiz.izquierda.siguientes;
+        }
+        RESULT = raiz;:}
+    | mas CE:id1 {:System.out.println(id1.dato.toString()+"+"); //RESULT = "("+id1+"+)"; 
+        NodoArbol raiz = new NodoArbol("+");
+        raiz.izquierda = (NodoArbol)id1;
+        if(!raiz.primeros.equals("")){
+            raiz.primeros += ","+raiz.izquierda.primeros;
+            raiz.siguientes += ","+raiz.izquierda.siguientes;
+        }else{
+            raiz.primeros = raiz.izquierda.primeros;
+            raiz.siguientes = raiz.izquierda.siguientes;
+        }
+        RESULT = raiz;:}
+    | interrogacion CE:id1 {://System.out.println(id1+"?"); 
+        NodoArbol raiz = new NodoArbol("?");
+        raiz.izquierda = (NodoArbol)id1;
+        raiz.anulable = true;
+        if(!raiz.primeros.equals("")){
+            raiz.primeros += ","+raiz.izquierda.primeros;
+            raiz.siguientes += ","+raiz.izquierda.siguientes;
+        }else{
+            raiz.primeros = raiz.izquierda.primeros;
+            raiz.siguientes = raiz.izquierda.siguientes;
+        }
+        RESULT = raiz;:}
+;
+
+CE::= cadena:ce {:
+        NodoArbol hoja = new NodoArbol(ce);
+        hoja.hoja = true;
+        hoja.numHoja = numHoja;
+        hoja.primeros += numHoja;
+        hoja.siguientes += numHoja;
+        numHoja++;
+        System.out.println("Entre en id"); RESULT = hoja;:}
+    | llavea identificador:ce llavec {://System.out.println("Entre en {id}"); 
+        NodoArbol hoja = new NodoArbol(ce);
+        hoja.hoja = true;
+        hoja.numHoja = numHoja;
+        hoja.primeros += numHoja;
+        hoja.siguientes += numHoja;
+        numHoja++;
+        RESULT = hoja;:}
+    | CEXP:ce {:System.out.println("Entre en CE");RESULT = ce;:}
+;
+
+POR::= porcentaje porcentaje porcentaje porcentaje LSEN
+;
+
+LSEN::= LSEN SEN:nueva {:entradasAnalizar.add(nueva);:}
+    | SEN:nueva {:entradasAnalizar.add(nueva);:}
+;
+
+SEN::= identificador:nombre dospuntos cadena:cad puntocoma {:EntradaAnalisis nuevaEntrada = new EntradaAnalisis(nombre, cad.replace("\"","")); 
+    System.out.println("Evaluar con "+ nombre+" a " + cad);
+    RESULT=nuevaEntrada;:}
+;
